@@ -18,6 +18,7 @@ import re
 import ssl
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime
 
@@ -47,7 +48,12 @@ def fetch(url=URL, timeout=20):
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.read().decode("utf-8", errors="replace")
-    except ssl.SSLCertVerificationError:
+    except urllib.error.URLError as e:
+        # urllib does not hand you the SSL exception directly -- it wraps it in
+        # a URLError and puts the real cause in .reason. Catching the SSL class
+        # alone silently never matches.
+        if not isinstance(e.reason, ssl.SSLCertVerificationError):
+            raise
         # This server does not send its intermediate certificate, so Python
         # can't build a chain to a trusted root. Browsers paper over this by
         # going and fetching the missing cert themselves; Python doesn't.
