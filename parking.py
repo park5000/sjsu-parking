@@ -73,7 +73,11 @@ def parse(html):
             readings[name] = int(m.group(1))
 
     if not readings:
-        raise ValueError("parsed zero garages -- page structure or wording changed")
+        # Show what actually came back. Nine times out of ten this is a block
+        # page, a cookie interstitial or a JS shell -- not a wording change.
+        raise ValueError(
+            "parsed zero garages. First 500 chars received:\n" + text[:500]
+        )
     return source_updated, readings
 
 
@@ -118,8 +122,14 @@ def collect(once=False, interval=INTERVAL, path=CSV_PATH):
     while True:
         try:
             sample(path)
-        except Exception as e:  # never let one bad response kill an overnight run
+        except Exception as e:
             print(f"[{datetime.now():%H:%M:%S}] error: {e}", file=sys.stderr)
+            # In --once mode (cron / CI) a swallowed error is worse than a
+            # crash: the job goes green and you find out hours later that you
+            # logged nothing. Exit loud. In loop mode, keep going -- one bad
+            # response shouldn't kill an overnight run.
+            if once:
+                sys.exit(1)
         if once:
             return
         time.sleep(interval)
