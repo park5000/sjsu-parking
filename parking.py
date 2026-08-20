@@ -194,6 +194,22 @@ def plot(csv_path=CSV_PATH, png_path=PNG_PATH):
 
 # ------------------------------------------------------------------------ cli
 
+def debug(url=URL):
+    """Print what we actually receive, so the parse can be written against
+    reality instead of against an assumption."""
+    html = fetch(url)
+    text = strip_tags(html)
+    print(f"--- raw html: {len(html)} chars ---")
+    print(f"--- stripped text: {len(text)} chars ---")
+    print(text[:3000])
+    print("--- every number followed by a percent sign ---")
+    for m in re.finditer(r"(\d{1,3})\s*%", text):
+        lo = max(0, m.start() - 60)
+        print(f"  {m.group(1):>3} %   ...{text[lo:m.end()]}")
+
+
+# ------------------------------------------------------------------------ cli
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -207,9 +223,13 @@ def main():
     pl.add_argument("--csv", default=CSV_PATH)
     pl.add_argument("--out", default=PNG_PATH)
 
+    sub.add_parser("debug")
+
     a = p.parse_args()
     if a.cmd == "collect":
         collect(once=a.once, interval=a.interval, path=a.csv)
+    elif a.cmd == "debug":
+        debug()
     else:
         plot(a.csv, a.out)
 
