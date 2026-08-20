@@ -3,7 +3,7 @@
 SJSU parking garage fullness logger.
 
     python parking.py collect          # poll every 2 min until you Ctrl-C
-    python parking.py collect --once   # single sample (use this from cron)
+    python parking.py debug   # single sample (use this from cron)
     python parking.py plot             # render parking.png from parking.csv
 
 Collection is stdlib-only, so it runs with zero installs.
