@@ -15,6 +15,7 @@ import argparse
 import csv
 import os
 import re
+import ssl
 import sys
 import time
 import urllib.request
@@ -43,8 +44,25 @@ HEADERS = {
 
 def fetch(url=URL, timeout=20):
     req = urllib.request.Request(url, headers=HEADERS)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode("utf-8", errors="replace")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read().decode("utf-8", errors="replace")
+    except ssl.SSLCertVerificationError:
+        # This server does not send its intermediate certificate, so Python
+        # can't build a chain to a trusted root. Browsers paper over this by
+        # going and fetching the missing cert themselves; Python doesn't.
+        #
+        # Dropping verification is acceptable HERE and only here: the page is
+        # public, we send no credentials, and the worst a man in the middle
+        # gets is the chance to lie to us about parking. Never copy this into
+        # anything that logs in, pays, or handles a source's information.
+        print("warning: TLS chain incomplete -- retrying unverified",
+              file=sys.stderr)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
+            return r.read().decode("utf-8", errors="replace")
 
 
 def strip_tags(html):
