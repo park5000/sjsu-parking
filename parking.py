@@ -16,6 +16,7 @@ import os
 import re
 import ssl
 import sys
+import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -36,6 +37,33 @@ GARAGES = [
 
 # Marks the end of the last garage's block.
 END_MARKER = "Parking Shuttles"
+
+
+def interval_for(now):
+    """Sampling cadence by time of day, in seconds.
+
+    Two windows matter and are sampled at 2 min: the morning arrival ramp and
+    the afternoon release. The morning window opens at 05:30 because South
+    Garage takes its first car around 06:06-06:25, earlier than any other
+    garage -- a window that opened at 07:00 would miss the arrival entirely.
+
+    Overnight and weekends run at 15 min rather than shutting off, because the
+    lowest reading ever recorded is what bounds the size of the blocked
+    section. That number is a finding, and it turns up at 01:00 on a Saturday.
+    """
+    h = now.hour + now.minute / 60
+    if now.weekday() >= 5:          # weekend: low demand, but the floor lives here
+        return 900                  # 15 min
+    if 5.5 <= h < 10.5:             # arrival ramp -- densest
+        return 120                  # 2 min
+    if 14.5 <= h < 16.5:            # afternoon release
+        return 120                  # 2 min
+    if 10.5 <= h < 14.5:            # midday plateau / Full ceiling
+        return 300                  # 5 min
+    if 16.5 <= h < 21.0:            # evening decay
+        return 600                  # 10 min
+    return 900                      # overnight floor, 15 min
+
 
 HEADERS = {
     "User-Agent": "sjsu-parking-logger/1.0 (student research; contact: you@example.com)"
@@ -165,10 +193,34 @@ def sample(path=CSV_PATH):
     return True
 
 
-def collect(once=False, interval=INTERVAL, path=CSV_PATH):
+def git_commit(path):
+    """Commit and push one sample. Called after every write when --push is set,
+    so a long-running job's data is safe even if the job is killed mid-shift."""
+    subprocess.run(["git", "add", path], check=True)
+    if subprocess.run(["git", "diff", "--staged", "--quiet"]).returncode == 0:
+        return  # nothing changed
+    subprocess.run(
+        ["git", "commit", "-q", "-m", f"parking {datetime.now():%Y-%m-%d %H:%M}"],
+        check=True)
+    for _ in range(3):
+        if subprocess.run(["git", "push", "-q"]).returncode == 0:
+            return
+        subprocess.run(["git", "pull", "--rebase", "--autostash", "-q"])
+    print("warning: push failed, will retry next sample", file=sys.stderr)
+
+
+def collect(once=False, interval=INTERVAL, path=CSV_PATH,
+            duration=None, push=False, adaptive=False):
+    """duration is in minutes. The point of a long-running loop is that
+    time.sleep() is exact, while an external scheduler's promises are not."""
+    deadline = time.time() + duration * 60 if duration else None
     while True:
+        if adaptive:
+            interval = interval_for(datetime.now())
         try:
-            sample(path)
+            wrote = sample(path)
+            if wrote and push:
+                git_commit(path)
         except Exception as e:
             print(f"[{datetime.now():%H:%M:%S}] error: {e}", file=sys.stderr)
             # In --once mode a swallowed error is worse than a crash: the job
@@ -176,6 +228,9 @@ def collect(once=False, interval=INTERVAL, path=CSV_PATH):
             if once:
                 sys.exit(1)
         if once:
+            return
+        if deadline and time.time() + interval > deadline:
+            print(f"[{datetime.now():%H:%M:%S}] shift over")
             return
         time.sleep(interval)
 
@@ -248,6 +303,12 @@ def main():
     c.add_argument("--once", action="store_true")
     c.add_argument("--interval", type=int, default=INTERVAL)
     c.add_argument("--csv", default=CSV_PATH)
+    c.add_argument("--duration", type=int, default=None,
+                   help="minutes to keep sampling, then exit")
+    c.add_argument("--adaptive", action="store_true",
+                   help="vary sampling rate by time of day (see interval_for)")
+    c.add_argument("--push", action="store_true",
+                   help="git commit + push after every sample")
 
     pl = sub.add_parser("plot")
     pl.add_argument("--csv", default=CSV_PATH)
@@ -257,7 +318,8 @@ def main():
 
     a = p.parse_args()
     if a.cmd == "collect":
-        collect(once=a.once, interval=a.interval, path=a.csv)
+        collect(once=a.once, interval=a.interval, path=a.csv,
+                duration=a.duration, push=a.push, adaptive=a.adaptive)
     elif a.cmd == "debug":
         debug()
     else:
