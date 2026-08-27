@@ -1,0 +1,36 @@
+name: scrape parking
+
+on:
+  schedule:
+    # Start a shift every 2 hours. Each shift samples on its own clock for
+    # ~2h5m, so shifts overlap slightly and a late start can't leave a gap.
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scrape
+  cancel-in-progress: true   # a new shift replaces the old one, no double-writes
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 135      # hard ceiling; the script exits before this
+    env:
+      TZ: America/Los_Angeles
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure git
+        run: |
+          git config user.name "parking-bot"
+          git config user.email "parking-bot@users.noreply.github.com"
+
+      - name: Sample for one shift
+        run: python parking.py collect --adaptive --duration 125 --push
