@@ -2,9 +2,12 @@ name: scrape parking
 
 on:
   schedule:
-    # Start a shift every 2 hours. Each shift samples on its own clock for
-    # ~2h5m, so shifts overlap slightly and a late start can't leave a gap.
-    - cron: "0 */2 * * *"
+    # Hourly, with each shift ending BEFORE the next trigger arrives.
+    # GitHub skips a scheduled trigger if a run of the same workflow is still
+    # in progress, so a shift longer than its own interval starves the next
+    # one. 55 < 60 leaves the door open. Hourly also means a dropped trigger
+    # costs one hour, not two.
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -12,12 +15,12 @@ permissions:
 
 concurrency:
   group: scrape
-  cancel-in-progress: true   # a new shift replaces the old one, no double-writes
+  cancel-in-progress: false  # shifts no longer overlap, so nothing to cancel
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 135      # hard ceiling; the script exits before this
+    timeout-minutes: 65       # hard ceiling; the script exits before this
     env:
       TZ: America/Los_Angeles
     steps:
@@ -33,4 +36,4 @@ jobs:
           git config user.email "parking-bot@users.noreply.github.com"
 
       - name: Sample for one shift
-        run: python parking.py collect --adaptive --duration 125 --push
+        run: python parking.py collect --adaptive --duration 55 --push
