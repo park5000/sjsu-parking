@@ -3063,3 +3063,7 @@ fetched_at,source_updated,garage,status,percent
 2026-09-03T08:59:40,"9/3/2026, 8:57:53 AM",West Garage,ok,88
 2026-09-03T08:59:40,"9/3/2026, 8:57:53 AM",South Garage,ok,92
 2026-09-03T08:59:40,"9/3/2026, 8:57:53 AM",South Campus Garage,ok,9
+2026-09-03T10:37:26,"9/3/2026, 10:33:54 AM",North Garage,ok,96
+2026-09-03T10:37:26,"9/3/2026, 10:33:54 AM",West Garage,full,100
+2026-09-03T10:37:26,"9/3/2026, 10:33:54 AM",South Garage,full,100
+2026-09-03T10:37:26,"9/3/2026, 10:33:54 AM",South Campus Garage,ok,33
