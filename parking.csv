@@ -5791,3 +5791,7 @@ fetched_at,source_updated,garage,status,percent
 2026-09-10T10:41:19,"9/10/2026, 10:38:45 AM",West Garage,full,100
 2026-09-10T10:41:19,"9/10/2026, 10:38:45 AM",South Garage,full,100
 2026-09-10T10:41:19,"9/10/2026, 10:38:45 AM",South Campus Garage,ok,30
+2026-09-10T10:46:21,"9/10/2026, 10:42:45 AM",North Garage,ok,95
+2026-09-10T10:46:21,"9/10/2026, 10:42:45 AM",West Garage,full,100
+2026-09-10T10:46:21,"9/10/2026, 10:42:45 AM",South Garage,full,100
+2026-09-10T10:46:21,"9/10/2026, 10:42:45 AM",South Campus Garage,ok,30
